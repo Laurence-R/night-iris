@@ -1,0 +1,30 @@
+# Export TensorRT engine from a checkpoint (FP16, fixed batch for fair latency vs .pt)
+# Prefer --model to point at the exact .pt; --model-size uses model_template
+# Re-export after changing quantize/batch — old FP32 engines are not updated in place.
+
+name = "export_engine"
+mode = "export"
+model = "fine_tuned_model/yolo26n_trained.pt"
+model_template = "fine_tuned_model/yolo26{size}_trained.pt"
+data = "rgb-dark.v1i.yolo26/data.yaml"
+device = 0
+
+[train]
+epochs = 50
+patience = 15
+batch = 8
+imgsz = 640
+
+[val]
+batch = 1
+imgsz = 640
+
+[predict]
+source = "dark_rgb"
+conf = 0.25
+
+[export]
+format = "engine"
+quantize = 16   # FP16 (TensorRT 11 / Ultralytics ModelOpt path)
+batch = 1
+imgsz = 640

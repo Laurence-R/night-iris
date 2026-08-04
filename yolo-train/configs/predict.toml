@@ -1,0 +1,29 @@
+# Predict on a folder of images
+
+name = "predict"
+mode = "predict"
+model = "fine_tuned_model/yolo26n_trained.pt"
+model_template = "fine_tuned_model/yolo26{size}_trained.pt"
+data = "rgb-dark.v1i.yolo26/data.yaml"
+device = 0
+
+[train]
+epochs = 50
+patience = 15
+batch = 8
+imgsz = 640
+
+[val]
+batch = 1
+imgsz = 640
+
+[predict]
+source = "dark_rgb"
+conf = 0.25
+batch = 1
+
+[export]
+format = "engine"
+quantize = 16
+batch = 1
+

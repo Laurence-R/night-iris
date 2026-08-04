@@ -1,0 +1,47 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv/
+**/.venv/
+
+# uv (lock stays at repo root only)
+raw-clahe/uv.lock
+yolo-train/uv.lock
+
+# raw-clahe data & outputs
+raw-clahe/dataset/
+raw-clahe/result/
+
+# yolo-train data, models & runs
+yolo-train/runs/
+yolo-train/experiments/
+yolo-train/lod-dataset.v2i.yolo26/
+yolo-train/rgb-dark.v1i.yolo26/
+yolo-train/pretrained_model/
+yolo-train/fine_tuned_model/
+yolo-train/dark_rgb/
+
+# Model / engine artifacts
+*.pt
+*.engine
+*.onnx
+*.weights
+
+# Charts / local artifacts
+*.png
+
+# Env secrets
+.env
+.env.*
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

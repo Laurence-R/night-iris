@@ -1,0 +1,17 @@
+[project]
+name = "fast-clahe"
+version = "0.1.0"
+description = "Workspace root for raw-clahe preprocessing and yolo-train detection"
+requires-python = ">=3.11"
+dependencies = []
+
+[tool.uv]
+package = false
+
+[tool.uv.workspace]
+members = ["raw-clahe", "yolo-train"]
+
+[[tool.uv.index]]
+name = "pytorch-cu126"
+url = "https://download.pytorch.org/whl/cu126"
+explicit = true

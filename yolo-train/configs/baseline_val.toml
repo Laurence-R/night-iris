@@ -1,0 +1,30 @@
+# Baseline: w/o enhance & fine-tune
+# Weights: pretrained_model/yolo26{size}.pt  (expanded by --model-size)
+
+name = "baseline_val"
+mode = "val"
+model = "pretrained_model/yolo26n.pt"
+model_template = "pretrained_model/yolo26{size}.pt"
+data = "rgb-dark.v1i.yolo26/data.yaml"
+device = 0
+
+[train]
+epochs = 50
+patience = 15
+batch = 8
+imgsz = 640
+
+[val]
+# Match TensorRT engine export batch for fair .pt vs .engine latency comparison
+batch = 1
+imgsz = 640
+
+[predict]
+source = "dark_rgb"
+conf = 0.25
+
+[export]
+format = "engine"
+quantize = 16
+batch = 1
+

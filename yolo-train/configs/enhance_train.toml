@@ -1,0 +1,29 @@
+# Enhance route: train on enhanced LOD dataset
+# Weights start from pretrained; Ultralytics writes runs/; copy to fine_tuned_model as needed
+
+name = "enhance_train"
+mode = "train"
+model = "pretrained_model/yolo26n.pt"
+model_template = "pretrained_model/yolo26{size}.pt"
+data = "lod-dataset.v2i.yolo26/data.yaml"
+device = 0
+
+[train]
+epochs = 50
+patience = 15
+batch = 8
+imgsz = 640
+
+[val]
+batch = 1
+imgsz = 640
+
+[predict]
+source = "dark_rgb"
+conf = 0.25
+
+[export]
+format = "engine"
+quantize = 16
+batch = 1
+

@@ -1,11 +1,21 @@
 # raw-clahe
 
-GPU 加速的夜間 HDR CLAHE 前處理：白平衡 → Y 通道 CLAHE →（可選）雙邊濾波 → 線性 tone mapping → uint8 LDR。
+GPU-based 的夜間 HDR CLAHE 前處理：白平衡 → Y 通道 CLAHE →（可選）雙邊濾波 → 線性 tone mapping → uint8 LDR。
 
-## 準備資料（不在 git 內）
+## 準備資料
+請在 `raw-clahe` 底下建立 `dataset/` 作為 16-bit HDR 影像的放置區。
+本研究使用的影像資料集為 [LOD Dataset](https://github.com/ying-fu/LODDataset) 若有需要可以點擊連結前往該 repo
 
-將 16-bit HDR／RAW 影像放在 `dataset/`（相對於本目錄）。`dataset/`、`result/` 與延遲圖 `*.png` 皆被根 `.gitignore` 排除，需本機自行放置／產生。輸出預設寫入 `result/enhanced/`。
+建好 `dataset/` 後的檔案結構：
 
+```
+fast-clahe/
+├── dataset/
+│   ├── img_1.png
+│   ├── img_2.png
+│   ...
+...
+```
 ## 設定檔
 
 | 檔案 | 說明 |
@@ -21,7 +31,7 @@ GPU 加速的夜間 HDR CLAHE 前處理：白平衡 → Y 通道 CLAHE →（可
 uv run --package raw-clahe --directory raw-clahe python main.py --config configs/default.toml
 ```
 
-常用覆寫：
+常用指令：
 
 ```bash
 # 關閉雙邊濾波、限制張數
@@ -33,7 +43,7 @@ uv run --package raw-clahe --directory raw-clahe python main.py --input dataset 
 
 CLI 參數：`--config`、`--input`、`--output`、`--count`、`--no-bilateral`。
 
-跑完後：
+跑完後會有以下的檔案產出：
 
 - 增強影像：`result/enhanced/`
 - 生效設定快照：`result/run_config.toml`

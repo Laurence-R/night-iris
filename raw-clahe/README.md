@@ -4,7 +4,7 @@ GPU-based 的夜間 HDR CLAHE 前處理：白平衡 → Y 通道 CLAHE →（可
 
 ## 準備資料
 請在 `raw-clahe` 底下建立 `dataset/` 作為欲處理之 16-bit HDR 影像的放置區。
-本研究使用的影像資料集為 [LOD Dataset](https://github.com/ying-fu/LODDataset) 若有需要可以點擊連結前往該 repo
+本研究使用的影像資料集為 [LOD Dataset](https://github.com/ying-fu/LODDataset) 若有需要可以點擊連結前往該 repo 進行下載。
 
 建好 `dataset/` 後的檔案結構：
 

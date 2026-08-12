@@ -1,7 +1,7 @@
-# Predict on a folder of images
+# Val: wo_enhance data + fine-tuned weights
 
-name = "predict"
-mode = "predict"
+name = "wo_enhance_finetune"
+mode = "val"
 model = "fine_tuned_model/yolo26n_trained.pt"
 model_template = "fine_tuned_model/yolo26{size}_trained.pt"
 data = "wo_enhance/data.yaml"
@@ -20,7 +20,6 @@ imgsz = 640
 [predict]
 source = "dark_rgb"
 conf = 0.25
-batch = 1
 
 [export]
 format = "engine"

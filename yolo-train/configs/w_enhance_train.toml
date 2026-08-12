@@ -1,11 +1,10 @@
-# Baseline: w/o enhance & fine-tune
-# Weights: pretrained_model/yolo26{size}.pt  (expanded by --model-size)
+# Train on w_enhance starting from pretrained weights
 
-name = "baseline_val"
-mode = "val"
+name = "w_enhance_train"
+mode = "train"
 model = "pretrained_model/yolo26n.pt"
 model_template = "pretrained_model/yolo26{size}.pt"
-data = "rgb-dark.v1i.yolo26/data.yaml"
+data = "w_enhance/data.yaml"
 device = 0
 
 [train]
@@ -15,7 +14,6 @@ batch = 8
 imgsz = 640
 
 [val]
-# Match TensorRT engine export batch for fair .pt vs .engine latency comparison
 batch = 1
 imgsz = 640
 
@@ -27,4 +25,3 @@ conf = 0.25
 format = "engine"
 quantize = 16
 batch = 1
-

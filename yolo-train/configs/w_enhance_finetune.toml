@@ -1,11 +1,10 @@
-# Experimental: w enhance & fine-tune
-# Weights: fine_tuned_model/yolo26{size}_trained.pt
+# Val: w_enhance data + fine-tuned weights
 
-name = "enhance_val"
+name = "w_enhance_finetune"
 mode = "val"
 model = "fine_tuned_model/yolo26n_trained.pt"
 model_template = "fine_tuned_model/yolo26{size}_trained.pt"
-data = "lod-dataset.v2i.yolo26/data.yaml"
+data = "w_enhance/data.yaml"
 device = 0
 
 [train]
@@ -15,7 +14,6 @@ batch = 8
 imgsz = 640
 
 [val]
-# Match TensorRT engine export batch for fair .pt vs .engine latency comparison
 batch = 1
 imgsz = 640
 
@@ -27,4 +25,3 @@ conf = 0.25
 format = "engine"
 quantize = 16
 batch = 1
-

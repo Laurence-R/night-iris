@@ -6,7 +6,7 @@ name = "export_engine"
 mode = "export"
 model = "fine_tuned_model/yolo26n_trained.pt"
 model_template = "fine_tuned_model/yolo26{size}_trained.pt"
-data = "rgb-dark.v1i.yolo26/data.yaml"
+data = "wo_enhance/data.yaml"
 device = 0
 
 [train]

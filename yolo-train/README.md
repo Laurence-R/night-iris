@@ -1,68 +1,82 @@
 # yolo-train
 
-YOLO26 夜間偵測消融：Baseline（無增強、無微調）vs Enhance + fine-tune，並可匯出 TensorRT engine。
+YOLO26 夜間偵測消融：資料集（`wo_enhance` / `w_enhance`）× 權重（nofinetune / finetune），並可匯出 TensorRT engine。
 
 ## 本機資料與權重（不在 git 內）
 
-資料集、`pretrained_model/`、`fine_tuned_model/`、`runs/`、`experiments/`、`*.pt`／`*.engine`／`*.onnx` 皆不進版控。clone 後請自行準備，細節見[根 README「版控範圍」](../README.md#版控範圍什麼在-git什麼要本機準備)。
-
-## 權重路徑慣例
-
-| 路線 | 路徑 |
+| 內容 | 路徑 |
 |------|------|
-| Baseline（pretrained） | `pretrained_model/yolo26{n\|s\|m\|l\|x}.pt` |
-| Fine-tuned（enhance 訓練後） | `fine_tuned_model/yolo26{n\|s\|m\|l\|x}_trained.pt` |
+| 未增強資料集 | `wo_enhance/` |
+| 增強後資料集 | `w_enhance/` |
+| 預訓練權重 | `pretrained_model/yolo26{n\|s\|m\|l\|x}.pt` |
+| Fine-tuned 權重 | `fine_tuned_model/yolo26{n\|s\|m\|l\|x}_trained.pt` |
+| 推論測資（可選） | `dark_rgb/` |
 
-對應舊 runs 註記：`val 1–5` ≈ baseline 驗證；`train 2–6` ≈ enhance 訓練產物。請改用下方具名 config，勿再靠註解開關。
+`runs/`、`experiments/`、`*.pt`／`*.engine`／`*.onnx` 亦不進版控。細節見[根 README](../README.md)。
 
-## 實驗設定檔
+## Ultralytics runs 目錄
+
+全域 `runs_dir` 若指到別的路徑（例如舊的 `E:\old_folder\runs`），結果會寫出本專案。建議先設成本 repo：
+
+```bash
+uv run --package yolo-train yolo settings
+
+# 例如：如果專案再 E:\
+uv run --package yolo-train yolo settings runs_dir="E:\fast-clahe\yolo-train\runs"
+```
+
+本專案的 `main.py` 也會在 `train`／`val`／`predict` 傳入 `project=<yolo-train>/runs`（絕對路徑），降低跑錯目錄的機會。
+
+## 消融 2×2（四選一 val）
+
+| Config | 資料 | 權重 |
+|--------|------|------|
+| [`configs/wo_enhance_nofinetune.toml`](configs/wo_enhance_nofinetune.toml) | `wo_enhance` | pretrained |
+| [`configs/w_enhance_nofinetune.toml`](configs/w_enhance_nofinetune.toml) | `w_enhance` | pretrained |
+| [`configs/wo_enhance_finetune.toml`](configs/wo_enhance_finetune.toml) | `wo_enhance` | fine-tuned |
+| [`configs/w_enhance_finetune.toml`](configs/w_enhance_finetune.toml) | `w_enhance` | fine-tuned |
+
+其他：
 
 | Config | 模式 | 說明 |
 |--------|------|------|
-| [`configs/baseline_val.toml`](configs/baseline_val.toml) | `val` | w/o enhance & fine-tune，資料 `rgb-dark.v1i.yolo26` |
-| [`configs/enhance_train.toml`](configs/enhance_train.toml) | `train` | enhance 路線訓練，資料 `lod-dataset.v2i.yolo26` |
-| [`configs/enhance_val.toml`](configs/enhance_val.toml) | `val` | enhance + fine-tune 驗證 |
-| [`configs/export_engine.toml`](configs/export_engine.toml) | `export` | 匯出 TensorRT `.engine` |
-| [`configs/predict.toml`](configs/predict.toml) | `predict` | 對 `dark_rgb` 做推論 |
+| [`configs/w_enhance_train.toml`](configs/w_enhance_train.toml) | `train` | 在 `w_enhance` 上微調 |
+| [`configs/export_engine.toml`](configs/export_engine.toml) | `export` | 匯出 FP16 `.engine` |
+| [`configs/predict.toml`](configs/predict.toml) | `predict` | 對 `dark_rgb` 推論 |
 
 ## 執行
 
 ```bash
-uv run --package yolo-train --directory yolo-train python main.py --config configs/baseline_val.toml --model-size n
-uv run --package yolo-train --directory yolo-train python main.py --config configs/enhance_val.toml --model-size all
-uv run --package yolo-train --directory yolo-train python main.py --config configs/enhance_train.toml --model-size s
+# 四選一驗證（預設 config 為 wo_enhance_nofinetune）
+uv run --package yolo-train --directory yolo-train python main.py --config configs/wo_enhance_nofinetune.toml --model-size n
+uv run --package yolo-train --directory yolo-train python main.py --config configs/w_enhance_finetune.toml --model-size n
+
+# 訓練
+uv run --package yolo-train --directory yolo-train python main.py --config configs/w_enhance_train.toml --model-size s
 ```
 
 - `--model-size`：`n` / `s` / `m` / `l` / `x` / `all`
-- `--model`：直接覆寫權重路徑（略過 size 展開）
-- `--config`：預設 `configs/baseline_val.toml`
+- `--model`：直接覆寫權重路徑
 
 ## 結果記錄
 
-`val` 模式會寫入：
+`val` 寫入（目錄名 = config 的 `name`，不附 size 後綴）：
 
 ```
-experiments/<name>_<size>/
-  metrics.json          # mAP、延遲、FPS、路徑、時間戳
-  config.snapshot.toml  # 本次生效設定
+experiments/<name>/
+  metrics.json
+  config.snapshot.toml   # 含本次實際 model 路徑
 ```
+
+同 config 再跑不同 size 會覆寫同目錄；以 snapshot 分辨用了哪個權重。
 
 ## 匯出 TensorRT `.engine`（FP16）
-
-依賴已含 `tensorrt-cu12`、`nvidia-modelopt` 與 ONNX 工具鏈。預設匯出 **FP16**（`quantize = 16`）、`batch = 1`（見 `configs/export_engine.toml` 的 `[export]`）。驗證設定同樣使用 `batch = 1`，方便與 `.pt` 公平比較單張延遲。
 
 ```bash
 uv run --package yolo-train --directory yolo-train python main.py --config configs/export_engine.toml --model fine_tuned_model/yolo26n_trained.pt
 ```
 
-成功後檔案在權重同目錄，例如 `fine_tuned_model/yolo26n_trained.engine`。`.engine` 綁定本機 GPU／TensorRT 版本；改 `quantize`／`batch` 後需重匯。
-
-公平比較範例（兩邊都是 batch=1）：
-
-```bash
-uv run --package yolo-train --directory yolo-train python main.py --config configs/enhance_val.toml --model fine_tuned_model/yolo26x_trained.pt
-uv run --package yolo-train --directory yolo-train python main.py --config configs/enhance_val.toml --model fine_tuned_model/yolo26x_trained.engine
-```
+`.engine` 綁定本機 GPU／TensorRT；改 `quantize`／`batch` 後需重匯。
 
 ## 下載 Roboflow 資料集
 
@@ -70,5 +84,7 @@ uv run --package yolo-train --directory yolo-train python main.py --config confi
 set ROBOFLOW_API_KEY=你的金鑰
 uv run --package yolo-train --directory yolo-train python download_dataset.py
 ```
+
+腳本會把下載目錄重新命名為 `w_enhance/`。
 
 研究報告見 [docs/report.md](../docs/report.md)。

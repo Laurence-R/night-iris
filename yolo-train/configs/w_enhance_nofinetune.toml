@@ -1,0 +1,27 @@
+# Val: w_enhance data + pretrained (no fine-tune)
+
+name = "w_enhance_nofinetune"
+mode = "val"
+model = "pretrained_model/yolo26n.pt"
+model_template = "pretrained_model/yolo26{size}.pt"
+data = "w_enhance/data.yaml"
+device = 0
+
+[train]
+epochs = 50
+patience = 15
+batch = 8
+imgsz = 640
+
+[val]
+batch = 1
+imgsz = 640
+
+[predict]
+source = "dark_rgb"
+conf = 0.25
+
+[export]
+format = "engine"
+quantize = 16
+batch = 1

@@ -21,8 +21,8 @@ raw-clahe/result/
 # yolo-train data, models & runs
 yolo-train/runs/
 yolo-train/experiments/
-yolo-train/lod-dataset.v2i.yolo26/
-yolo-train/rgb-dark.v1i.yolo26/
+yolo-train/w_enhance/
+yolo-train/wo_enhance/
 yolo-train/pretrained_model/
 yolo-train/fine_tuned_model/
 yolo-train/dark_rgb/
@@ -35,6 +35,7 @@ yolo-train/dark_rgb/
 
 # Charts / local artifacts
 *.png
+*.jpg
 
 # Env secrets
 .env

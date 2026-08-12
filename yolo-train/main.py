@@ -8,6 +8,7 @@ import torch
 from ultralytics import YOLO
 
 MODEL_SIZES = ("n", "s", "m", "l", "x")
+RUNS_PROJECT = str(Path("runs").resolve())
 
 
 def load_config(path: str) -> dict:
@@ -31,13 +32,13 @@ def resolve_model_paths(cfg: dict, model_size: str, model_override: str | None) 
     return [(model_size, cfg["model"])]
 
 
-def experiment_dir(name: str, size_label: str) -> Path:
-    path = Path("experiments") / f"{name}_{size_label}"
+def experiment_dir(name: str) -> Path:
+    path = Path("experiments") / name
     path.mkdir(parents=True, exist_ok=True)
     return path
 
 
-def write_snapshot(exp_dir: Path, cfg: dict, model_path: str, size_label: str) -> None:
+def write_snapshot(exp_dir: Path, cfg: dict, model_path: str) -> None:
     train = cfg.get("train", {})
     val = cfg.get("val", {})
     predict = cfg.get("predict", {})
@@ -45,7 +46,7 @@ def write_snapshot(exp_dir: Path, cfg: dict, model_path: str, size_label: str) -
     quantize = export.get("quantize", 16)
 
     text = (
-        f'name = "{cfg["name"]}_{size_label}"\n'
+        f'name = "{cfg["name"]}"\n'
         f'mode = "{cfg["mode"]}"\n'
         f'model = "{model_path}"\n'
         f'data = "{cfg.get("data", "")}"\n'
@@ -84,6 +85,7 @@ def train_model(model: YOLO, cfg: dict) -> None:
         batch=t.get("batch", 8),
         imgsz=t.get("imgsz", 640),
         device=cfg.get("device", 0),
+        project=RUNS_PROJECT,
     )
 
 
@@ -95,6 +97,7 @@ def predict_model(model: YOLO, cfg: dict) -> None:
         batch=p.get("batch", 1),
         save=True,
         device=cfg.get("device", 0),
+        project=RUNS_PROJECT,
     )
 
 
@@ -114,7 +117,7 @@ def export_model(model: YOLO, cfg: dict) -> None:
     )
 
 
-def validate_model(model: YOLO, cfg: dict, model_path: str, size_label: str) -> dict:
+def validate_model(model: YOLO, cfg: dict, model_path: str) -> dict:
     v = cfg.get("val", {})
     batch = int(v.get("batch", 1))
     imgsz = int(v.get("imgsz", 640))
@@ -124,6 +127,7 @@ def validate_model(model: YOLO, cfg: dict, model_path: str, size_label: str) -> 
         device=cfg.get("device", 0),
         batch=batch,
         imgsz=imgsz,
+        project=RUNS_PROJECT,
     )
 
     preprocess_time = results.speed["preprocess"]
@@ -147,7 +151,7 @@ def validate_model(model: YOLO, cfg: dict, model_path: str, size_label: str) -> 
     print(f"等效吞吐量 (FPS): {fps:.2f}")
 
     metrics = {
-        "name": f"{cfg['name']}_{size_label}",
+        "name": cfg["name"],
         "mode": "val",
         "model": model_path,
         "data": cfg["data"],
@@ -164,8 +168,8 @@ def validate_model(model: YOLO, cfg: dict, model_path: str, size_label: str) -> 
         "fps": fps,
     }
 
-    exp_dir = experiment_dir(cfg["name"], size_label)
-    write_snapshot(exp_dir, cfg, model_path, size_label)
+    exp_dir = experiment_dir(cfg["name"])
+    write_snapshot(exp_dir, cfg, model_path)
     metrics_path = exp_dir / "metrics.json"
     metrics_path.write_text(json.dumps(metrics, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f">> Metrics saved to: {metrics_path}")
@@ -176,23 +180,23 @@ def run_one(cfg: dict, model_path: str, size_label: str) -> None:
     if not Path(model_path).exists():
         raise SystemExit(f"Model not found: {model_path}")
 
-    print(f"\n=== Experiment {cfg['name']}_{size_label} | mode={cfg['mode']} | model={model_path} ===")
+    print(f"\n=== Experiment {cfg['name']} | size={size_label} | mode={cfg['mode']} | model={model_path} ===")
     model = YOLO(model_path)
     mode = cfg["mode"]
 
     if mode == "train":
-        exp_dir = experiment_dir(cfg["name"], size_label)
-        write_snapshot(exp_dir, cfg, model_path, size_label)
+        exp_dir = experiment_dir(cfg["name"])
+        write_snapshot(exp_dir, cfg, model_path)
         train_model(model, cfg)
     elif mode == "val":
-        validate_model(model, cfg, model_path, size_label)
+        validate_model(model, cfg, model_path)
     elif mode == "predict":
-        exp_dir = experiment_dir(cfg["name"], size_label)
-        write_snapshot(exp_dir, cfg, model_path, size_label)
+        exp_dir = experiment_dir(cfg["name"])
+        write_snapshot(exp_dir, cfg, model_path)
         predict_model(model, cfg)
     elif mode == "export":
-        exp_dir = experiment_dir(cfg["name"], size_label)
-        write_snapshot(exp_dir, cfg, model_path, size_label)
+        exp_dir = experiment_dir(cfg["name"])
+        write_snapshot(exp_dir, cfg, model_path)
         export_model(model, cfg)
     else:
         raise SystemExit(f"Unknown mode: {mode!r} (expected train|val|predict|export)")
@@ -202,7 +206,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="YOLO26 ablation experiment runner")
     parser.add_argument(
         "--config",
-        default="configs/baseline_val.toml",
+        default="configs/wo_enhance_nofinetune.toml",
         help="Path to TOML experiment config",
     )
     parser.add_argument(
@@ -226,6 +230,7 @@ def main():
     print("GPU 是否可用:", torch.cuda.is_available())
     print("顯卡型號:", torch.cuda.get_device_name(0) if torch.cuda.is_available() else "無")
     print("Torch 依賴的 CUDA 版本: ", torch.version.cuda)
+    print(f"Ultralytics runs project: {RUNS_PROJECT}")
 
     targets = resolve_model_paths(cfg, args.model_size, args.model)
     for size_label, model_path in targets:

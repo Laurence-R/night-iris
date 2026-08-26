@@ -100,8 +100,6 @@ uv run --package yolo-train yolo settings runs_dir="E:\fast-clahe\yolo-train\run
 
 ## 文件
 
-- [實驗報告](docs/report.md)
-- [簡報大綱](docs/ppt.md)
 - [raw-clahe 操作說明](raw-clahe/README.md)
 - [yolo-train 操作說明](yolo-train/README.md)
 

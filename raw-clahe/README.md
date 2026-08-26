@@ -48,5 +48,3 @@ CLI 參數：`--config`、`--input`、`--output`、`--count`、`--no-bilateral`�
 - 增強影像：`result/enhanced/`
 - 生效設定快照：`result/run_config.toml`
 - 延遲圖：工作目錄下的 `preprocessing_latency_*.png`
-
-研究報告見 [docs/report.md](../docs/report.md)。

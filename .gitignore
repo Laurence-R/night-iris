@@ -41,6 +41,9 @@ yolo-train/dark_rgb/
 .env
 .env.*
 
+# Local writing (not published with the code)
+.docs/
+
 # IDE / OS
 .idea/
 .vscode/

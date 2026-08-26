@@ -86,5 +86,3 @@ uv run --package yolo-train --directory yolo-train python download_dataset.py
 ```
 
 腳本會把下載目錄重新命名為 `w_enhance/`。
-
-研究報告見 [docs/report.md](../docs/report.md)。

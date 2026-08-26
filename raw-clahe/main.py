@@ -37,6 +37,7 @@ def write_run_config(dest_path: str, cfg: dict) -> None:
     image = cfg["image"]
     clahe = cfg["clahe"]
     bilateral = cfg["bilateral"]
+    wb = cfg.get("white_balance", {})
     grid = clahe["grid"]
     kernel = bilateral["kernel"]
     sigma_space = bilateral["sigma_space"]
@@ -61,6 +62,13 @@ def write_run_config(dest_path: str, cfg: dict) -> None:
         f'kernel = [{kernel[0]}, {kernel[1]}]\n'
         f'sigma_color = {bilateral["sigma_color"]}\n'
         f'sigma_space = [{sigma_space[0]}, {sigma_space[1]}]\n'
+        f'\n'
+        f'[white_balance]\n'
+        f'enabled = {"true" if wb.get("enabled", True) else "false"}\n'
+        f'luma_low_pct = {wb.get("luma_low_pct", 0.40)}\n'
+        f'luma_high_pct = {wb.get("luma_high_pct", 0.95)}\n'
+        f'gain_min = {wb.get("gain_min", 0.5)}\n'
+        f'gain_max = {wb.get("gain_max", 2.0)}\n'
     )
     out = Path(dest_path) / "run_config.toml"
     out.write_text(text, encoding="utf-8")
@@ -81,6 +89,14 @@ def enhance_processing(items, dest_path, cfg: dict):
     bf_sigma_c = float(bilateral["sigma_color"])
     bf_sigma_s = tuple(float(x) for x in bilateral["sigma_space"])
     grid_size = tuple(int(x) for x in clahe_cfg["grid"])
+    wb = cfg.get("white_balance", {})
+    wb_enabled = bool(wb.get("enabled", True))
+    wb_kwargs = {
+        "luma_low_pct": float(wb.get("luma_low_pct", 0.40)),
+        "luma_high_pct": float(wb.get("luma_high_pct", 0.95)),
+        "gain_min": float(wb.get("gain_min", 0.5)),
+        "gain_max": float(wb.get("gain_max", 2.0)),
+    }
 
     print("=== Loading all images into memory... ===")
     all_numpy = load_raw_batch(items, h, w)
@@ -106,7 +122,8 @@ def enhance_processing(items, dest_path, cfg: dict):
     all_results = np.empty((len(items), h, w, 3), dtype=np.uint8)
 
     def process_slot(i):
-        white_balance(gpu_batch[i : i + 1], gains_buffer)
+        if wb_enabled:
+            white_balance(gpu_batch[i : i + 1], gains_buffer, **wb_kwargs)
         apply_clahe_korina(
             gpu_batch[i : i + 1],
             yuv_buffer,
@@ -148,7 +165,8 @@ def enhance_processing(items, dest_path, cfg: dict):
         bf_events = [_event() for _ in range(n)] if use_bilateral else None
         tm_events = [_event() for _ in range(n)]
         for i in range(n):
-            white_balance(gpu_batch[i : i + 1], gains_buffer)
+            if wb_enabled:
+                white_balance(gpu_batch[i : i + 1], gains_buffer, **wb_kwargs)
             apply_clahe_korina(
                 gpu_batch[i : i + 1],
                 yuv_buffer,

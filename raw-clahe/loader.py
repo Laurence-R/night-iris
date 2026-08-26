@@ -3,35 +3,50 @@ import cv2
 import numpy as np
 from tm import tm_logarithmic, tm_linear
 
-def white_balance(img_tensor: torch.Tensor, gains_buffer: torch.Tensor | None = None):
+def white_balance(
+    img_tensor: torch.Tensor,
+    gains_buffer: torch.Tensor | None = None,
+    luma_low_pct: float = 0.40,
+    luma_high_pct: float = 0.95,
+    gain_min: float = 0.5,
+    gain_max: float = 2.0,
+):
     """
-    在 GPU 上對 (1, 3, H, W) 的浮點數張量進行『原地（In-place）灰色世界白平衡』。
-    此函式直接修改輸入的張量（帶底線算子），達到零記憶體碎片與極限加速。
-    
-    參數:
-        img_tensor (torch.Tensor): 位於 GPU 上的張量，形狀為 (1, 3, H, W)，數值範圍為 [0.0, 1.0]
-        
-    通道順序說明 (以 RAW 轉出來的 RGB 為例):
-        通道 0 = R, 通道 1 = G, 通道 2 = B (若為 BGR 則對調即可，原理相同)
+    百分位遮罩 Gray-World 白平衡（原地）。
+
+    只對 BT.709 亮度落在 [luma_low_pct, luma_high_pct] 的像素估 R/B 增益，
+    避開夜間暗部綠噪與過曝高光。有效像素不足 1% 時退回整圖平均。
+
+    輸入: (1, 3, H, W) float32 RGB，範圍 [0, 1]。
     """
-    # 1. 計算每個通道的平均值 (對 H 維度 dim=2 與 W 維度 dim=3 取平均)
-    # keepdim=True 會保持形狀為 (1, 3, 1, 1)，完美對齊廣播機制 (Broadcasting)
-    channel_means = img_tensor.mean(dim=(2, 3), keepdim=True) # 形狀: (1, 3, 1, 1)
-    
-    mean_r = channel_means[:, 0:1, :, :]
-    mean_g = channel_means[:, 1:2, :, :]
-    mean_b = channel_means[:, 2:3, :, :]
-    
-    # 2. 防止分母為 0 (避免全黑圖片除以零錯誤)
     eps = 1e-5
-    mean_r = torch.clamp(mean_r, min=eps)
-    mean_b = torch.clamp(mean_b, min=eps)
-    
-    # 3. 以 G 通道為基準計算 R 與 B 的補償增益
-    gain_r = mean_g / mean_r
-    gain_b = mean_g / mean_b
-    
-    # 4. 重用預配置增益 buffer，避免每幀配置新 tensor
+    luma = (
+        0.2126 * img_tensor[:, 0:1, :, :]
+        + 0.7152 * img_tensor[:, 1:2, :, :]
+        + 0.0722 * img_tensor[:, 2:3, :, :]
+    )
+    q = torch.quantile(
+        luma.reshape(-1),
+        torch.tensor([luma_low_pct, luma_high_pct], device=img_tensor.device, dtype=img_tensor.dtype),
+    )
+    mask = (luma >= q[0]) & (luma <= q[1])
+    n_valid = mask.sum()
+    n_pix = luma.numel()
+
+    if n_valid < max(int(0.01 * n_pix), 1):
+        channel_means = img_tensor.mean(dim=(2, 3), keepdim=True)
+    else:
+        mask_f = mask.to(img_tensor.dtype)
+        denom = mask_f.sum().clamp(min=eps)
+        channel_means = (img_tensor * mask_f).sum(dim=(2, 3), keepdim=True) / denom
+
+    mean_r = torch.clamp(channel_means[:, 0:1, :, :], min=eps)
+    mean_g = torch.clamp(channel_means[:, 1:2, :, :], min=eps)
+    mean_b = torch.clamp(channel_means[:, 2:3, :, :], min=eps)
+
+    gain_r = (mean_g / mean_r).clamp(gain_min, gain_max)
+    gain_b = (mean_g / mean_b).clamp(gain_min, gain_max)
+
     if gains_buffer is None:
         gains = torch.ones_like(channel_means)
     else:
@@ -39,8 +54,7 @@ def white_balance(img_tensor: torch.Tensor, gains_buffer: torch.Tensor | None = 
         gains.fill_(1.0)
     gains[:, 0:1, :, :] = gain_r
     gains[:, 2:3, :, :] = gain_b
-    
-    # 5. 原地乘法與截斷 (利用 .mul_() 與 .clamp_()，零顯存分配)
+
     img_tensor.mul_(gains)
     img_tensor.clamp_(0.0, 1.0)
 

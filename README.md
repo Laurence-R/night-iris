@@ -6,12 +6,15 @@
 
 ![Night-Iris 前處理架構](docs/architecture.png)
 
-| 子專案 | 是什麼 |
-| --- | --- |
-| [`night-iris`](night-iris/) | 前處理本體。讀 LDR，輸出融合後的 LDR，並可抽樣寫階段圖。 |
-| [`gpu-clahe`](gpu-clahe/) | `night-iris` 呼叫的 CLAHE kernel（`clahe.py`）。同目錄的 `main.py` 是另外一條 16-bit 延遲測試，不產生給 YOLO 的訓練圖。 |
-| [`dataset-transform`](dataset-transform/) | 把 SBU-shadow 轉成 YOLO-sem，供亮暗模型重訓。 |
-| [`yolo-lab`](yolo-lab/) | 在已是 YOLO 格式的 BDD 夜間資料上做偵測訓練、驗證與 TensorRT 匯出，用來比較前處理前後的偵測結果。 |
+
+| 子專案                                       | 是什麼                                                                                               |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `[night-iris](night-iris/)`               | 前處理本體。讀 LDR，輸出融合後的 LDR，並可抽樣寫階段圖。                                                                  |
+| `[gpu-clahe](gpu-clahe/)`                 | `night-iris` 呼叫的 CLAHE kernel（`clahe.py`）。同目錄地下的 `main.py` 是專門用來測試處理 16-bit 圖片的延遲，不產生給 YOLO 的訓練圖。 |
+| `[dataset-transform](dataset-transform/)` | 把各種的 Dataset 轉成 YOLO 格式，供 YOLO 進行各種任務的訓練、驗證與測試。                                                   |
+| `[yolo-lab](yolo-lab/)`                   | 後端模型 (目前是 YOLO) 的訓練場，在已是 YOLO 格式的各種夜間資料集上做偵測訓練、驗證與 TensorRT 匯出等多項任務，並能用來比較前處理前後的偵測結果。             |
+
+
 
 
 ## 環境
@@ -30,11 +33,13 @@ uv sync --all-packages
 
 推論直接用這三個檔，都在 `night-iris/model/`：
 
-| 檔案 | 用途 |
-| --- | --- |
-| `yolo26l-sem-object.pt` | 物件遮罩。與 `yolo26l-sem.pt` 是同一份 Ultralytics YOLO-sem 權重，類別為 Cityscapes。 |
-| `yolo26l-sem.pt` | 重訓亮暗模型時的起點，內容與上一列相同。 |
-| `yolo26l-sem-shadow-2.pt` | 在 SBU-shadow 上訓練的亮／暗模型，推論時用這份。 |
+
+| 檔案                        | 用途                                                                   |
+| ------------------------- | -------------------------------------------------------------------- |
+| `yolo26l-sem-object.pt`   | 物件遮罩。與 `yolo26l-sem.pt` 是同一份 Ultralytics YOLO-sem 權重，類別為 Cityscapes。 |
+| `yolo26l-sem.pt`          | 重訓亮暗模型時的起點，內容與上一列相同。                                                 |
+| `yolo26l-sem-shadow-2.pt` | 在 SBU-shadow 上訓練的亮／暗模型，推論時用這份。                                       |
+
 
 COCO 偵測權重、TensorRT engine、訓練產物 `runs/` 不進 git。偵測微調得到的 `best.pt` 超過 GitHub 單檔 100MB，所以留在本機 `yolo-lab/runs/`。
 
@@ -43,13 +48,15 @@ COCO 偵測權重、TensorRT engine、訓練產物 `runs/` 不進 git。偵測�
 資料集與原圖不進 git。
 
 
-| 內容 | 路徑 | 說明 |
-| --- | --- | --- |
-| 前處理輸入 | `night-iris/data/images/` | jpg／png。輸出在 `night-iris/result/ldr/`，抽樣階段圖在 `result/debug/`。 |
-| SBU-shadow 原始資料 | `night-iris/data/SBU-shadow/` | 只有要重訓亮暗模型時才需要。內含 `SBU-Train`、`SBU-Test`。 |
-| 原夜間偵測資料 | `yolo-lab/datasets/bdd10k-night/70-15-15/` | BDD 夜間 10 類，70/15/15 分割。 |
-| Night-Iris 處理後的偵測資料 | `yolo-lab/datasets/bdd10k-night-iris/70-15-15/` | 同一分割，影像已跑過 night-iris。 |
-| COCO 預訓練權重 | `yolo-lab/yolo-coco/yolo26{n,s,m,l,x}.pt` | 從 Ultralytics 下載後放這裡，偵測實驗才會找到。 |
+| 內容                  | 路徑                                              | 說明                                                           |
+| ------------------- | ----------------------------------------------- | ------------------------------------------------------------ |
+| 前處理輸入               | `night-iris/data/images/`                       | jpg／png。輸出在 `night-iris/result/ldr/`，抽樣階段圖在 `result/debug/`。 |
+| SBU-shadow 原始資料     | `night-iris/data/SBU-shadow/`                   | 只有要重訓亮暗模型時才需要。內含 `SBU-Train`、`SBU-Test`。                     |
+| 原夜間偵測資料             | `yolo-lab/datasets/bdd10k-night/70-15-15/`      | BDD 夜間 10 類，70/15/15 分割。                                     |
+| Night-Iris 處理後的偵測資料 | `yolo-lab/datasets/bdd10k-night-iris/70-15-15/` | 同一分割，影像已跑過 night-iris。                                       |
+| COCO 預訓練權重          | `yolo-lab/yolo-coco/yolo26{n,s,m,l,x}.pt`       | 從 Ultralytics 下載後放這裡，偵測實驗才會找到。                               |
+
+
 
 
 ## 常用指令
@@ -67,7 +74,7 @@ uv run --package dataset-transform --directory dataset-transform python trans_sc
 uv run --package yolo-lab --directory yolo-lab python main.py --config configs/semantic_sbu_shadow_train.toml
 ```
 
-偵測實驗的設定都在 `yolo-lab/configs/`。原圖與 Night-Iris 圖各有訓練、預訓練驗證、微調驗證，資料路徑都是上面的 `70-15-15`。細節見 [`yolo-lab/README.md`](yolo-lab/README.md)。
+偵測實驗的設定都在 `yolo-lab/configs/`。原圖與 Night-Iris 圖各有訓練、預訓練驗證、微調驗證，資料路徑都是上面的 `70-15-15`。細節見 `[yolo-lab/README.md](yolo-lab/README.md)`。
 
 16-bit CLAHE 延遲測試（與前處理分開）：
 
@@ -75,9 +82,12 @@ uv run --package yolo-lab --directory yolo-lab python main.py --config configs/s
 uv run --package gpu-clahe --directory gpu-clahe python main.py --config configs/default.toml
 ```
 
+
+
 ## 文件
 
 - [night-iris 操作說明](night-iris/README.md)
 - [gpu-clahe 操作說明](gpu-clahe/README.md)
 - [dataset-transform 操作說明](dataset-transform/README.md)
 - [yolo-lab 操作說明](yolo-lab/README.md)
+

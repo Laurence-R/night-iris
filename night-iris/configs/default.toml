@@ -1,0 +1,40 @@
+[paths]
+input_dir = "data/images"
+output_dir = "result"
+
+[sem_object]
+model = "model/yolo26l-sem-object.pt"
+imgsz = 800
+# Cityscapes thing classes. Other scene classes stay enhanceable.
+object_classes = [
+  "person",
+  "rider",
+  "car",
+  "truck",
+  "bus",
+  "train",
+  "motorcycle",
+  "bicycle",
+  "traffic light",
+  "traffic sign",
+]
+
+[sem_shadow]
+model = "model/yolo26l-sem-shadow-2.pt"
+imgsz = 640
+dark_class_ids = [1]
+
+[clahe]
+grid = [8, 8]
+clip_limit = 4.0
+
+[viz]
+min_region_area = 256
+save_crops = true
+# 0 = dump every image. Otherwise dump this many, chosen with sample_seed.
+sample = 8
+sample_seed = 0
+
+[timing]
+# First N images are warmup (CUDA / YOLO / CLAHE buffers). Excluded from P50/P99.
+warmup = 1

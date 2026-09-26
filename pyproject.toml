@@ -1,7 +1,7 @@
 [project]
 name = "fast-clahe"
 version = "0.1.0"
-description = "Workspace root for raw-clahe preprocessing and yolo-train detection"
+description = "Night-Iris workspace: night-iris preprocessing, gpu-clahe, yolo-lab, and dataset-transform"
 requires-python = ">=3.11"
 dependencies = []
 
@@ -9,7 +9,7 @@ dependencies = []
 package = false
 
 [tool.uv.workspace]
-members = ["raw-clahe", "yolo-train"]
+members = ["night-iris", "gpu-clahe", "yolo-lab", "dataset-transform"]
 
 [[tool.uv.index]]
 name = "pytorch-cu126"

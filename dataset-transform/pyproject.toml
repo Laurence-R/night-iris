@@ -1,0 +1,13 @@
+[project]
+name = "dataset-transform"
+version = "0.1.0"
+description = "Convert third-party datasets into YOLO-ready layouts"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=2.0.0",
+    "opencv-python>=4.13.0.92",
+]
+
+[tool.uv]
+package = false

@@ -1,0 +1,28 @@
+# Val: original BDD night images + COCO pretrained.
+# Weights are downloaded into yolo-coco/ and are not in git.
+
+name = "bdd10k-night-pretrained"
+mode = "val"
+model = "yolo-coco/yolo26n.pt"
+model_template = "yolo-coco/yolo26{size}.pt"
+data = "datasets/bdd10k-night/70-15-15/data.yaml"
+device = 0
+
+[train]
+epochs = 50
+patience = 15
+batch = 8
+imgsz = 640
+
+[val]
+batch = 1
+imgsz = 640
+
+[predict]
+source = "datasets/bdd10k-night/70-15-15/valid/images"
+conf = 0.25
+
+[export]
+format = "engine"
+quantize = 16
+batch = 1

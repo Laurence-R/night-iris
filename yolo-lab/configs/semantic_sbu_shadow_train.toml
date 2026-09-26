@@ -1,0 +1,27 @@
+# Semantic train: SBU-shadow bright / dark
+#
+# Night-Iris 的 [sem_shadow] 權重在這裡訓。
+# 類別：0=bright、1=dark。推論時 dark_class_ids = [1]。
+#
+# 資料須已是 YOLO-sem 格式（dataset-transform/trans_script/sbu-shadow.py）。
+# 起點：night-iris/model/yolo26l-sem.pt（Ultralytics sem 預訓練）。
+# 訓完把 best.pt 設到 night-iris/configs/default.toml 的 [sem_shadow].model。
+#
+# task 必須是 semantic，val 才不會走 detect 的 class_remap／mAP。
+
+name = "sbu_shadow_sem_train"
+mode = "train"
+task = "semantic"
+model = "../night-iris/model/yolo26l-sem.pt"
+data = "datasets/SBU-shadow-yolo/data.yaml"
+device = 0
+
+[train]
+epochs = 200
+patience = 40
+batch = 8
+imgsz = 640
+
+[val]
+batch = 1
+imgsz = 640

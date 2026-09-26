@@ -1,0 +1,27 @@
+# Val: original BDD night images + the detect weights from detect_bdd_orig_train.toml.
+# best.pt is written under runs/ and is not in git (this checkpoint is over GitHub's 100MB limit).
+
+name = "bdd10k-night-finetuned"
+mode = "val"
+model = "runs/bdd10k-night-baseline/weights/best.pt"
+data = "datasets/bdd10k-night/70-15-15/data.yaml"
+device = 0
+
+[train]
+epochs = 50
+patience = 15
+batch = 8
+imgsz = 640
+
+[val]
+batch = 1
+imgsz = 640
+
+[predict]
+source = "datasets/bdd10k-night/70-15-15/valid/images"
+conf = 0.25
+
+[export]
+format = "engine"
+quantize = 16
+batch = 1

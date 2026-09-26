@@ -1,0 +1,16 @@
+===	SBU Shadow Detection Dataset ===
+======================================
+- Feel free to use this dataset for non-commercial purposes
+- Please cite the following works:
+
+@inproceedings{Vicente-etal-ECCV16, 
+Author = {Tomas F. Yago Vicente and Le Hou and Chen-Ping Yu and Minh Hoai and Dimitris Samaras}, 
+Booktitle = {Proceedings of European Conference on Computer Vision}, 
+Title = {Large-scale Training of Shadow Detectors with Noisily-Annotated Shadow Examples}, 
+Year = {2016}} 
+
+@inproceedings{Vicente-etal-CVPR16,
+Author = {Tomas F. Yago Vicente and Minh Hoai and Dimitris Samaras},
+Booktitle = {Proceedings of IEEE Conference on Computer Vision and Pattern Recognition},
+Title = {Noisy Label Recovery for Shadow Detection in Unfamiliar Domains},
+Year = {2016}} 

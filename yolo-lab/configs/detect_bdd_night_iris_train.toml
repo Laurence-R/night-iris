@@ -1,0 +1,35 @@
+# Train a detect model on Night-Iris LDR (same 70-15-15 split as the original set).
+# name differs from the original-image run so runs/ is not overwritten.
+# dataset: datasets/bdd10k-night-iris (BDD night images after night-iris)
+#
+# 起點：yolo-coco/ 的 COCO 日間預訓練權重（不從頭訓）。
+# 類別：沿用資料集 10 類（含 rider、traffic sign）。與 COCO 預訓練 val
+# 的 8 類 remap mAP 不可直接比較。
+#
+# device 0（PyTorch CUDA，非 TensorRT）。
+
+name = "bdd10k-night-iris-baseline"
+mode = "train"
+model = "yolo-coco/yolo26n.pt"
+model_template = "yolo-coco/yolo26{size}.pt"
+data = "datasets/bdd10k-night-iris/70-15-15/data.yaml"
+device = 0
+
+[train]
+epochs = 75
+patience = 30
+batch = 4
+imgsz = 640
+
+[val]
+batch = 1
+imgsz = 640
+
+[predict]
+source = "datasets/bdd10k-night-iris/70-15-15/valid/images"
+conf = 0.25
+
+[export]
+format = "engine"
+quantize = 16
+batch = 1

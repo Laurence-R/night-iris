@@ -11,27 +11,38 @@ wheels/
 **/.venv/
 
 # uv (lock stays at repo root only)
-raw-clahe/uv.lock
-yolo-train/uv.lock
+gpu-clahe/uv.lock
+yolo-lab/uv.lock
+dataset-transform/uv.lock
 
-# raw-clahe data & outputs
-raw-clahe/dataset/
-raw-clahe/result/
+# gpu-clahe data & outputs
+gpu-clahe/dataset/
+gpu-clahe/result/
 
-# yolo-train data, models & runs
-yolo-train/runs/
-yolo-train/experiments/
-yolo-train/w_enhance/
-yolo-train/wo_enhance/
-yolo-train/pretrained_model/
-yolo-train/fine_tuned_model/
-yolo-train/dark_rgb/
+# night-iris data & outputs
+night-iris/data/
+night-iris/result/
+night-iris/uv.lock
 
-# Model / engine artifacts
-*.pt
+# yolo-lab data, downloaded COCO weights, and training outputs
+yolo-lab/runs/
+yolo-lab/experiments/
+yolo-lab/datasets
+yolo-lab/yolo-coco/
+yolo-lab/fine_tuned_ldr/
+
+# Engines are bound to this GPU. ONNX is an export intermediate.
 *.engine
 *.onnx
 *.weights
+
+# Ignore weight files, then re-include the checkpoints Night-Iris loads.
+# yolo26l-sem.pt is the Ultralytics sem start (also copied as the object model).
+# yolo26l-sem-shadow-2.pt is the SBU bright/dark model used at inference.
+*.pt
+!night-iris/model/yolo26l-sem.pt
+!night-iris/model/yolo26l-sem-object.pt
+!night-iris/model/yolo26l-sem-shadow-2.pt
 
 # Charts / local artifacts
 *.png
@@ -44,7 +55,8 @@ yolo-train/dark_rgb/
 # Local writing (not published with the code)
 .docs/
 
-# IDE / OS
+# IDE / OS / agent tooling
+.cursor/
 .idea/
 .vscode/
 .DS_Store

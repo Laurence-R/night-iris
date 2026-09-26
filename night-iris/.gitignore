@@ -1,0 +1,8 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+
+data/
+result/
+runs/
+

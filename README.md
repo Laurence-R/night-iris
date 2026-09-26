@@ -1,105 +1,82 @@
-# fast-clahe
+# Night-Iris
 
-夜間 HDR 前處理（16-bit CLAHE）與 YOLO26 偵測消融實驗的 monorepo。
+自動駕駛完全實現之前，夜間自動駕駛必須先被解決。夜間駕駛影像同時受低光、高強度亮光與極端光照影響，偵測模型在夜間的精準度會明顯下降；夜間資料的取得與標註成本也很高。Night-Iris 在相機與後端偵測模型之間加一層前處理：物件語意模型先標出人、車、號誌等像素並保留原圖，亮暗語意模型再在其餘區域找出暗部，GPU CLAHE 只改那些暗部像素，融合成一張既有偵測模型可以使用的 LDR。
 
-
-| 子專案                         | 職責                                             |
-| --------------------------- | ---------------------------------------------- |
-| `[raw-clahe](raw-clahe/)`   | GPU 加速 HDR CLAHE → LDR，延遲評測與增強影像輸出             |
-| `[yolo-train](yolo-train/)` | Baseline / enhance+fine-tune 訓練、驗證、TensorRT 匯出 |
+本 repo 是這項前處理的 MVP。clone 之後可以載入已放進 git 的權重，對自己的夜間 LDR 跑完整條管線。第一階段物件模型有時會標錯類別，權重先沿用現在這版，後續再改。
 
 
-資料流：
+| 子專案 | 是什麼 |
+| --- | --- |
+| [`night-iris`](night-iris/) | 前處理本體。讀 LDR，輸出融合後的 LDR，並可抽樣寫階段圖。 |
+| [`gpu-clahe`](gpu-clahe/) | `night-iris` 呼叫的 CLAHE kernel（`clahe.py`）。同目錄的 `main.py` 是另外一條 16-bit 延遲測試，不產生給 YOLO 的訓練圖。 |
+| [`dataset-transform`](dataset-transform/) | 把 SBU-shadow 轉成 YOLO-sem，供亮暗模型重訓。 |
+| [`yolo-lab`](yolo-lab/) | 在已是 YOLO 格式的 BDD 夜間資料上做偵測訓練、驗證與 TensorRT 匯出，用來比較前處理前後的偵測結果。 |
 
-```
-HDR → raw-clahe → enhanced LDR → yolo-train（訓練／驗證）
-```
 
 ## 環境
 
 - Python **3.11**
 - PyTorch **cu126**
-- 在 repo 根目錄安裝兩個 workspace member：
+- 在 repo 根目錄：
 
 ```bash
 uv sync --all-packages
 ```
 
-## 本機預先準備之檔案
+`uv sync --all-packages` 會一併安裝 `yolo-lab` 的 TensorRT。只跑前處理時仍然用這條指令即可，因為 workspace 的依賴是合在一起鎖的。
 
-本 repo **只追蹤程式、設定檔與文件**。大型資料、權重與執行產物不進 git（見根目錄 `[.gitignore](.gitignore)`）。clone 之後需自行準備下列內容，實驗才能完整重跑。
+## 已放進 git 的權重
 
+推論直接用這三個檔，都在 `night-iris/model/`：
 
-| 內容               | 建議放置路徑                                             | 說明                                                             |
-| ---------------- | -------------------------------------------------- | -------------------------------------------------------------- |
-| 夜間 HDR／16-bit 影像 | `raw-clahe/dataset/`                               | CLAHE 輸入；張數可對齊報告（約 2230）                                       |
-| Enhance 路線用之資料集  | `yolo-train/w_enhance/`                            | 已經透過 Roboflw 做好標註，可馬上供 YOLO 做訓練、驗證與測試，模擬 YOLO 在增強後的影像上的表現。     |
-| Baseline 路線用之資料集 | `yolo-train/wo_enhance/`                           | 已經透過 Roboflw 做好標註，可馬上供 YOLO 做訓練、驗證與測試，模擬 YOLO 在未增強影像上的表現。      |
-| 預訓練權重            | `yolo-train/pretrained_model/yolo26{n,s,m,l,x}.pt` | YOLO26 的預訓練權重，由日間資料集 COCO Dataset 所訓練的 YOLO26 模型。              |
-| Fine-tuned 權重    | `yolo-train/fine_tuned_model/yolo26*_trained.pt`   | 利用增強後的資料重新微調的 YOLO26 模型，可透過 `yolo-train` 將 enhance 之後的資料集對模型微調 |
-| 推論測資（可選）         | `yolo-train/dark_rgb/`                             | `predict` 模式用的圖片資料夾                                            |
-| Roboflow API Key | 環境變數 `ROBOFLOW_API_KEY`                            | 僅本機／CI secret，勿寫進程式                                            |
+| 檔案 | 用途 |
+| --- | --- |
+| `yolo26l-sem-object.pt` | 物件遮罩。與 `yolo26l-sem.pt` 是同一份 Ultralytics YOLO-sem 權重，類別為 Cityscapes。 |
+| `yolo26l-sem.pt` | 重訓亮暗模型時的起點，內容與上一列相同。 |
+| `yolo26l-sem-shadow-2.pt` | 在 SBU-shadow 上訓練的亮／暗模型，推論時用這份。 |
 
+COCO 偵測權重、TensorRT engine、訓練產物 `runs/` 不進 git。偵測微調得到的 `best.pt` 超過 GitHub 單檔 100MB，所以留在本機 `yolo-lab/runs/`。
 
-下載訓練資料集範例：
+## 需自行準備的資料
 
-```bash
-set ROBOFLOW_API_KEY=你的金鑰
-uv run --package yolo-train --directory yolo-train python download_dataset.py
-```
-
-權重命名慣例見 `[yolo-train/README.md](yolo-train/README.md)`。
-
-### 專案自動產出
+資料集與原圖不進 git。
 
 
-| 產出                   | 路徑                                      | 如何產生                                        |
-| -------------------- | --------------------------------------- | ------------------------------------------- |
-| 增強後 LDR、執行時的 config  | `raw-clahe/result/`                     | 跑 `raw-clahe` 前處理                           |
-| 處理時長圖表               | `raw-clahe/preprocessing_latency_*.png` | 同上                                          |
-| 驗證／訓練曲線與預測圖          | `yolo-train/runs/`                      | Ultralytics `train`／`val`／`predict`         |
-| 實驗指標 JSON            | `yolo-train/experiments/<config.name>/metrics.json` | `val` 模式結束後寫入                               |
-| ONNX／TensorRT engine | `*.onnx`、`*.engine`（多在權重同目錄）            | `export` 模式；engine 綁定本機 GPU／TensorRT，換機器需重匯 |
-| 虛擬環境                 | `.venv/`                                | `uv sync --all-packages`                    |
+| 內容 | 路徑 | 說明 |
+| --- | --- | --- |
+| 前處理輸入 | `night-iris/data/images/` | jpg／png。輸出在 `night-iris/result/ldr/`，抽樣階段圖在 `result/debug/`。 |
+| SBU-shadow 原始資料 | `night-iris/data/SBU-shadow/` | 只有要重訓亮暗模型時才需要。內含 `SBU-Train`、`SBU-Test`。 |
+| 原夜間偵測資料 | `yolo-lab/datasets/bdd10k-night/70-15-15/` | BDD 夜間 10 類，70/15/15 分割。 |
+| Night-Iris 處理後的偵測資料 | `yolo-lab/datasets/bdd10k-night-iris/70-15-15/` | 同一分割，影像已跑過 night-iris。 |
+| COCO 預訓練權重 | `yolo-lab/yolo-coco/yolo26{n,s,m,l,x}.pt` | 從 Ultralytics 下載後放這裡，偵測實驗才會找到。 |
 
-
-這些檔案體積大或與機器綁定，適合放本機或外部儲存，不適合 commit。
 
 ## 常用指令
 
-前處理（在 `raw-clahe` 工作目錄）：
+前處理（在 repo 根目錄）：
 
 ```bash
-uv run --package raw-clahe --directory raw-clahe python main.py --config configs/default.toml
-uv run --package raw-clahe --directory raw-clahe python main.py --config configs/default.toml --no-bilateral --count 100
+uv run --package night-iris --directory night-iris python main.py --config configs/default.toml
 ```
 
-偵測消融（在 `yolo-train` 工作目錄；四選一 val）：
+SBU 轉成 YOLO-sem 後再訓練亮暗模型：
 
 ```bash
-uv run --package yolo-train --directory yolo-train python main.py --config configs/wo_enhance_nofinetune.toml --model-size n
-uv run --package yolo-train --directory yolo-train python main.py --config configs/w_enhance_nofinetune.toml --model-size n
-uv run --package yolo-train --directory yolo-train python main.py --config configs/wo_enhance_finetune.toml --model-size n
-uv run --package yolo-train --directory yolo-train python main.py --config configs/w_enhance_finetune.toml --model-size n
-
-# 在 w_enhance 上微調
-uv run --package yolo-train --directory yolo-train python main.py --config configs/w_enhance_train.toml --model-size s
+uv run --package dataset-transform --directory dataset-transform python trans_script/sbu-shadow.py
+uv run --package yolo-lab --directory yolo-lab python main.py --config configs/semantic_sbu_shadow_train.toml
 ```
 
-驗證指標會寫入 `yolo-train/experiments/<config.name>/metrics.json`。
+偵測實驗的設定都在 `yolo-lab/configs/`。原圖與 Night-Iris 圖各有訓練、預訓練驗證、微調驗證，資料路徑都是上面的 `70-15-15`。細節見 [`yolo-lab/README.md`](yolo-lab/README.md)。
 
-### Ultralytics runs 目錄
-
-若結果寫到別的路徑（例如舊的 `E:\yolo-train\runs`），請先設定：
+16-bit CLAHE 延遲測試（與前處理分開）：
 
 ```bash
-uv run --package yolo-train yolo settings runs_dir="E:\fast-clahe\yolo-train\runs"
+uv run --package gpu-clahe --directory gpu-clahe python main.py --config configs/default.toml
 ```
-
-細節見 [`yolo-train/README.md`](yolo-train/README.md)。
 
 ## 文件
 
-- [raw-clahe 操作說明](raw-clahe/README.md)
-- [yolo-train 操作說明](yolo-train/README.md)
-
+- [night-iris 操作說明](night-iris/README.md)
+- [gpu-clahe 操作說明](gpu-clahe/README.md)
+- [dataset-transform 操作說明](dataset-transform/README.md)
+- [yolo-lab 操作說明](yolo-lab/README.md)

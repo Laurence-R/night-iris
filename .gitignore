@@ -44,9 +44,10 @@ yolo-lab/fine_tuned_ldr/
 !night-iris/model/yolo26l-sem-object.pt
 !night-iris/model/yolo26l-sem-shadow-2.pt
 
-# Charts / local artifacts
+# Charts / local artifacts. The architecture figure is part of the root README.
 *.png
 *.jpg
+!docs/architecture.png
 
 # Env secrets
 .env

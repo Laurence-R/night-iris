@@ -10,7 +10,7 @@
 | 子專案                                       | 是什麼                                                                                               |
 | ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
 | `[night-iris](night-iris/)`               | 前處理本體。讀 LDR，輸出融合後的 LDR，並可抽樣寫階段圖。                                                                  |
-| `[gpu-clahe](gpu-clahe/)`                 | `night-iris` 呼叫的 CLAHE kernel（`clahe.py`）。同目錄地下的 `main.py` 是專門用來測試處理 16-bit 圖片的延遲，不產生給 YOLO 的訓練圖。 |
+| `[gpu-clahe](gpu-clahe/)`                 | `night-iris` 呼叫的 CLAHE kernel（`clahe.py`）。同目錄的 `main.py` 量測 LDR 或 HDR 輸入的 CLAHE 延遲，不產生給 YOLO 的訓練圖。 |
 | `[dataset-transform](dataset-transform/)` | 把各種的 Dataset 轉成 YOLO 格式，供 YOLO 進行各種任務的訓練、驗證與測試。                                                   |
 | `[yolo-lab](yolo-lab/)`                   | 後端模型 (目前是 YOLO) 的訓練場，在已是 YOLO 格式的各種夜間資料集上做偵測訓練、驗證與 TensorRT 匯出等多項任務，並能用來比較前處理前後的偵測結果。             |
 
@@ -76,10 +76,10 @@ uv run --package yolo-lab --directory yolo-lab python main.py --config configs/s
 
 偵測實驗的設定都在 `yolo-lab/configs/`。原圖與 Night-Iris 圖各有訓練、預訓練驗證、微調驗證，資料路徑都是上面的 `70-15-15`。細節見 `[yolo-lab/README.md](yolo-lab/README.md)`。
 
-16-bit CLAHE 延遲測試（與前處理分開）：
+CLAHE 延遲測試（與前處理分開，用 `--dynamic-range` 選 `ldr` 或 `hdr`）：
 
 ```bash
-uv run --package gpu-clahe --directory gpu-clahe python main.py --config configs/default.toml
+uv run --package gpu-clahe --directory gpu-clahe python main.py --config configs/default.toml --dynamic-range hdr
 ```
 
 

@@ -1,7 +1,7 @@
 [project]
 name = "gpu-clahe"
 version = "0.1.0"
-description = "GPU CLAHE kernel test and latency measurement on 16-bit / high dynamic range images"
+description = "GPU CLAHE kernel test and latency measurement on LDR and HDR images"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [

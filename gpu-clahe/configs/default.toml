@@ -1,26 +1,21 @@
 [paths]
-input_dir = "dataset"
+input_dir = "unprocessed-img"
 output_dir = "result"
 
 [image]
-height = 800
-width = 1200
+height = 2048
+width = 2448
 count = 50
 batch_size = 1
 warmup = 1
+dynamic_range = "ldr"
 
 [clahe]
 grid = [8, 8]
+clip_limit = 4.0
 
 [bilateral]
 enabled = false
 kernel = [9, 9]
 sigma_color = 0.45
 sigma_space = [4.0, 4.0]
-
-[white_balance]
-enabled = true
-luma_low_pct = 0.40
-luma_high_pct = 0.95
-gain_min = 0.5
-gain_max = 2.0

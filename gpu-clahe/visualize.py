@@ -2,7 +2,25 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import os
 
-def plot_latency_breakdown(df):
+# 15 ms 線配 20 ms 軸頂時，線約在圖高 3/4。30 ms 沿用這個比例。
+_LIMIT_MS = 30.0
+
+
+def _draw_limit(ax):
+    ax.axhline(
+        y=_LIMIT_MS,
+        color="#8172b3",
+        linestyle="--",
+        linewidth=1.5,
+        label=f"Pre-Processing Limit ({_LIMIT_MS:.0f} ms)",
+    )
+
+
+def _ylim_top(series_max: float) -> float:
+    return max(series_max * 1.2, _LIMIT_MS * 4 / 3)
+
+
+def plot_latency_breakdown(df, output_dir):
     sns.set_theme(style="whitegrid")
     plt.rcParams["font.sans-serif"] = ["Arial", "Helvetica", "Microsoft JhengHei"]
     plt.rcParams["axes.unicode_minus"] = False
@@ -22,22 +40,22 @@ def plot_latency_breakdown(df):
     ax.bar(x, tm_y,      bottom=loading_y + clahe_y + bf_y,          label="Tone Mapping",     color="#dd8452", alpha=0.9, edgecolor="black", linewidth=0.4, width=0.55)
     ax.bar(x, d2h_y,     bottom=loading_y + clahe_y + bf_y + tm_y,  label="D2H Transfer",     color="#c44e52", alpha=0.9, edgecolor="black", linewidth=0.4, width=0.55)
 
-    ax.axhline(y=15.0, color="#8172b3", linestyle="--", linewidth=1.5, label="Pre-Processing Limit (15 ms)")
+    _draw_limit(ax)
 
     ax.set_title("Latency Breakdown Per Stage", fontsize=14, fontweight="bold", pad=15)
     ax.set_xlabel("# of Images", fontsize=12, fontweight="bold")
     ax.set_ylabel("Latency (ms)", fontsize=12, fontweight="bold")
-    ax.set_ylim(0, max(df["Total_Pipeline"].max() * 1.2, 20.0))
+    ax.set_ylim(0, _ylim_top(df["Total_Pipeline"].max()))
     ax.legend(loc="upper right", fontsize=9)
     plt.tight_layout()
 
-    output_filename = "preprocessing_latency_breakdown.png"
+    output_filename = os.path.join(output_dir, "preprocessing_latency_breakdown.png")
     plt.savefig(output_filename, bbox_inches="tight")
     print(f"\n>> 階段堆疊圖已儲存至：{os.path.abspath(output_filename)}")
     plt.close()
 
 
-def plot_scatter(df):
+def plot_scatter(df, output_dir):
     sns.set_theme(style="whitegrid")
     plt.rcParams["font.sans-serif"] = ["Arial", "Helvetica", "Microsoft JhengHei"]
     plt.rcParams["axes.unicode_minus"] = False
@@ -46,14 +64,16 @@ def plot_scatter(df):
 
     ax.scatter(x=df["Number"], y=df["Total_Preprocessing"],
                color="blue", marker="o", label="Preprocessing Time (ms)", s=40, alpha=0.7)
+    _draw_limit(ax)
 
     ax.set_title("Preprocessing Time Per Image", fontsize=14)
     ax.set_xlabel("# of Images", fontsize=12)
     ax.set_ylabel("Processing Time (ms)", fontsize=12)
+    ax.set_ylim(0, _ylim_top(df["Total_Preprocessing"].max()))
     ax.legend(loc="upper right", fontsize=9)
     ax.grid(True, linestyle="--", alpha=0.5)
 
-    output_filename = "preprocessing_latency_chart.png"
+    output_filename = os.path.join(output_dir, "preprocessing_latency_chart.png")
     plt.savefig(output_filename, bbox_inches="tight")
     print(f"\n>> 散佈圖已儲存至：{os.path.abspath(output_filename)}")
     plt.close()

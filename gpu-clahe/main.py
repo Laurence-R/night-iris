@@ -16,7 +16,7 @@ import pandas as pd
 import gc
 import random as rd
 
-from loader import load_raw_batch, batch_to_gpu, white_balance
+from loader import load_raw_batch, batch_to_gpu, range_spec
 from clahe import apply_clahe_korina, ClaheWorkspace, _ColorKernels
 from tm import tm_linear_inplace
 from visualize import plot_scatter, plot_latency_breakdown
@@ -37,7 +37,6 @@ def write_run_config(dest_path: str, cfg: dict) -> None:
     image = cfg["image"]
     clahe = cfg["clahe"]
     bilateral = cfg["bilateral"]
-    wb = cfg.get("white_balance", {})
     grid = clahe["grid"]
     kernel = bilateral["kernel"]
     sigma_space = bilateral["sigma_space"]
@@ -53,22 +52,17 @@ def write_run_config(dest_path: str, cfg: dict) -> None:
         f'count = {image["count"]}\n'
         f'batch_size = {image["batch_size"]}\n'
         f'warmup = {image["warmup"]}\n'
+        f'dynamic_range = "{image["dynamic_range"]}"\n'
         f'\n'
         f'[clahe]\n'
         f'grid = [{grid[0]}, {grid[1]}]\n'
+        f'clip_limit = {clahe["clip_limit"]}\n'
         f'\n'
         f'[bilateral]\n'
         f'enabled = {"true" if bilateral["enabled"] else "false"}\n'
         f'kernel = [{kernel[0]}, {kernel[1]}]\n'
         f'sigma_color = {bilateral["sigma_color"]}\n'
         f'sigma_space = [{sigma_space[0]}, {sigma_space[1]}]\n'
-        f'\n'
-        f'[white_balance]\n'
-        f'enabled = {"true" if wb.get("enabled", True) else "false"}\n'
-        f'luma_low_pct = {wb.get("luma_low_pct", 0.40)}\n'
-        f'luma_high_pct = {wb.get("luma_high_pct", 0.95)}\n'
-        f'gain_min = {wb.get("gain_min", 0.5)}\n'
-        f'gain_max = {wb.get("gain_max", 2.0)}\n'
     )
     out = Path(dest_path) / "run_config.toml"
     out.write_text(text, encoding="utf-8")
@@ -89,24 +83,18 @@ def enhance_processing(items, dest_path, cfg: dict):
     bf_sigma_c = float(bilateral["sigma_color"])
     bf_sigma_s = tuple(float(x) for x in bilateral["sigma_space"])
     grid_size = tuple(int(x) for x in clahe_cfg["grid"])
-    wb = cfg.get("white_balance", {})
-    wb_enabled = bool(wb.get("enabled", True))
-    wb_kwargs = {
-        "luma_low_pct": float(wb.get("luma_low_pct", 0.40)),
-        "luma_high_pct": float(wb.get("luma_high_pct", 0.95)),
-        "gain_min": float(wb.get("gain_min", 0.5)),
-        "gain_max": float(wb.get("gain_max", 2.0)),
-    }
+    clip_limit = float(clahe_cfg["clip_limit"])
+    dynamic_range = cfg["image"]["dynamic_range"]
+    _, scale = range_spec(dynamic_range)
 
-    print("=== Loading all images into memory... ===")
-    all_numpy = load_raw_batch(items, h, w)
+    print(f"=== Loading all images into memory ({dynamic_range}, scale {scale:g})... ===")
+    all_numpy = load_raw_batch(items, h, w, dynamic_range)
     print(f"Loaded {len(items)} images.\n")
 
     yuv_buffer = torch.zeros((1, 3, h, w), dtype=torch.float32, device="cuda")
     y_enhanced_buffer = torch.zeros((1, 1, h, w), dtype=torch.float32, device="cuda")
     rgb_out = torch.zeros((h, w, 3), dtype=torch.float32, device="cuda")
     tm_float_scratch = torch.empty((h, w, 3), dtype=torch.float32, device="cuda")
-    gains_buffer = torch.ones((1, 3, 1, 1), dtype=torch.float32, device="cuda")
     clahe_workspace = ClaheWorkspace(h, w, grid_size=grid_size, device="cuda")
     color_kernels = _ColorKernels(device="cuda", dtype=torch.float32)
 
@@ -122,8 +110,6 @@ def enhance_processing(items, dest_path, cfg: dict):
     all_results = np.empty((len(items), h, w, 3), dtype=np.uint8)
 
     def process_slot(i):
-        if wb_enabled:
-            white_balance(gpu_batch[i : i + 1], gains_buffer, **wb_kwargs)
         apply_clahe_korina(
             gpu_batch[i : i + 1],
             yuv_buffer,
@@ -131,6 +117,7 @@ def enhance_processing(items, dest_path, cfg: dict):
             rgb_out,
             clahe_workspace,
             color_kernels,
+            clip_limit=clip_limit,
         )
         if use_bilateral:
             bf_buf.copy_(rgb_out.permute(2, 0, 1).unsqueeze(0))
@@ -142,7 +129,9 @@ def enhance_processing(items, dest_path, cfg: dict):
         tm_linear_inplace(rgb_out, out_gpu[i], tm_float_scratch)
 
     print(f"=== Warmup ({warmup_count} images)... ===")
-    batch_to_gpu(all_numpy[:warmup_count], gpu_batch[:warmup_count], cpu_pinned[:warmup_count])
+    batch_to_gpu(
+        all_numpy[:warmup_count], gpu_batch[:warmup_count], cpu_pinned[:warmup_count], scale
+    )
     for i in range(warmup_count):
         process_slot(i)
     torch.cuda.synchronize()
@@ -158,15 +147,15 @@ def enhance_processing(items, dest_path, cfg: dict):
 
         h2d_start, h2d_end = _event(), _event()
         h2d_start.record()
-        batch_to_gpu(all_numpy[chunk_start : chunk_start + n], gpu_batch[:n], cpu_pinned[:n])
+        batch_to_gpu(
+            all_numpy[chunk_start : chunk_start + n], gpu_batch[:n], cpu_pinned[:n], scale
+        )
         h2d_end.record()
 
         clahe_events = [_event() for _ in range(n)]
         bf_events = [_event() for _ in range(n)] if use_bilateral else None
         tm_events = [_event() for _ in range(n)]
         for i in range(n):
-            if wb_enabled:
-                white_balance(gpu_batch[i : i + 1], gains_buffer, **wb_kwargs)
             apply_clahe_korina(
                 gpu_batch[i : i + 1],
                 yuv_buffer,
@@ -174,6 +163,7 @@ def enhance_processing(items, dest_path, cfg: dict):
                 rgb_out,
                 clahe_workspace,
                 color_kernels,
+                clip_limit=clip_limit,
             )
             clahe_events[i].record()
             if use_bilateral:
@@ -238,18 +228,20 @@ def enhance_processing(items, dest_path, cfg: dict):
 
     del all_numpy, gpu_batch, cpu_pinned, out_gpu, out_pinned
 
+    processed_dir = os.path.join(dest_path, "processed-img")
+    latency_dir = os.path.join(dest_path, "latency")
     print("=== GPU processing done. Writing PNGs to disk... ===")
     for item, result in zip(items, all_results):
         bgr_ldr = cv2.cvtColor(result, cv2.COLOR_RGB2BGR)
-        cv2.imwrite(os.path.join(dest_path, "enhanced", os.path.basename(item)), bgr_ldr)
+        cv2.imwrite(os.path.join(processed_dir, os.path.basename(item)), bgr_ldr)
     del all_results
 
-    print(f"\nDone. Results saved to: {os.path.join(dest_path, 'enhanced')}")
+    print(f"\nDone. Results saved to: {processed_dir}")
     write_run_config(dest_path, cfg)
 
     df = pd.DataFrame(records)
-    plot_scatter(df)
-    plot_latency_breakdown(df)
+    plot_scatter(df, latency_dir)
+    plot_latency_breakdown(df, latency_dir)
 
     p99 = df["Total_Preprocessing"].quantile(0.99)
     spikes = (df["Total_Preprocessing"] > 30).sum()
@@ -272,6 +264,12 @@ def parse_args():
         action="store_true",
         help="Disable bilateral filter",
     )
+    parser.add_argument(
+        "--dynamic-range",
+        choices=["ldr", "hdr"],
+        default=None,
+        help="Input dynamic range: ldr (8-bit, /255) or hdr (16-bit, /65535). Overrides config.",
+    )
     return parser.parse_args()
 
 
@@ -284,6 +282,11 @@ def apply_cli_overrides(cfg: dict, args: argparse.Namespace) -> dict:
         cfg["image"]["count"] = args.count
     if args.no_bilateral:
         cfg["bilateral"]["enabled"] = False
+    if args.dynamic_range is not None:
+        cfg["image"]["dynamic_range"] = args.dynamic_range
+    dynamic_range = cfg["image"].get("dynamic_range")
+    if dynamic_range not in ("ldr", "hdr"):
+        raise SystemExit("image.dynamic_range must be 'ldr' or 'hdr' (or pass --dynamic-range)")
     return cfg
 
 
@@ -296,7 +299,8 @@ def main():
     result_path = cfg["paths"]["output_dir"]
     img_count = int(cfg["image"]["count"])
 
-    os.makedirs(os.path.join(result_path, "enhanced"), exist_ok=True)
+    os.makedirs(os.path.join(result_path, "processed-img"), exist_ok=True)
+    os.makedirs(os.path.join(result_path, "latency"), exist_ok=True)
 
     gc.disable()
     torch.backends.cudnn.benchmark = True

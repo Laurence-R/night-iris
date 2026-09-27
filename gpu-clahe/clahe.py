@@ -1,7 +1,8 @@
 """
 GPU CLAHE kernel for RGB float32 in [0, 1].
 Uses pre-allocated workspace buffers to avoid per-frame CUDA allocations.
-night-iris loads this module for LDR enhancement. main.py is a separate 16-bit latency bench.
+night-iris loads this module for LDR enhancement. main.py is a separate latency bench;
+LDR and HDR are both normalized to float32 [0, 1] before this kernel runs.
 """
 from __future__ import annotations
 
@@ -107,6 +108,13 @@ class ClaheWorkspace:
         self.ones_flat      = torch.ones( (self.num_tiles, _pixels), device=device, dtype=dtype)
         self.v_range        = torch.arange(256, device=device, dtype=dtype)
         self.luts_flat_buf  = torch.empty((self.num_tiles, 256), device=device, dtype=dtype)
+        # Clip redistribution used to allocate these every frame inside the timed region.
+        self._hist_sum = torch.empty((self.num_tiles,), device=device, dtype=dtype)
+        self._clipped = torch.empty((self.num_tiles,), device=device, dtype=dtype)
+        self._residual = torch.empty((self.num_tiles,), device=device, dtype=dtype)
+        self._redist = torch.empty((self.num_tiles,), device=device, dtype=dtype)
+        self._lt = torch.empty((self.num_tiles, 256), device=device, dtype=torch.bool)
+        self._lt_f = torch.empty((self.num_tiles, 256), device=device, dtype=dtype)
         self._flatten_f     = torch.empty((1, self.gh2, self.gw2, 1, self.th2, self.tw2), device=device, dtype=dtype)
         self._flatten_i     = torch.empty((1, self.gh2, self.gw2, 1, _thw), device=device, dtype=torch.long)
         self._t_buf         = torch.empty((1, self.gh2 - 2, self.gw2 - 2, 1, self.th2, self.tw2), device=device, dtype=dtype)
@@ -165,10 +173,20 @@ class ClaheWorkspace:
             self._i_idxs_rep = None
 
     def _compute_tiles_inplace(self, img: torch.Tensor) -> None:
-        batch = img
-        if self.pad_vert > 0 or self.pad_horz > 0:
-            batch = F.pad(batch, [0, self.pad_horz, 0, self.pad_vert], mode="reflect")
-        self.img_padded.copy_(batch)
+        h, w = img.shape[-2:]
+        if self.pad_vert == 0 and self.pad_horz == 0:
+            self.img_padded.copy_(img)
+        elif self.pad_vert < h - 1 and self.pad_horz < w - 1:
+            # Reflect into the preallocated canvas. F.pad would allocate a full frame.
+            self.img_padded[..., :h, :w].copy_(img)
+            if self.pad_horz:
+                reflected = self.img_padded[..., :h, w - self.pad_horz - 1 : w - 1].flip(-1)
+                self.img_padded[..., :h, w:].copy_(reflected)
+            if self.pad_vert:
+                reflected = self.img_padded[..., h - self.pad_vert - 1 : h - 1, :].flip(-2)
+                self.img_padded[..., h:, :].copy_(reflected)
+        else:
+            self.img_padded.copy_(F.pad(img, [0, self.pad_horz, 0, self.pad_vert], mode="reflect"))
 
         c = self.img_padded.shape[-3]
         tiles = (
@@ -205,11 +223,18 @@ class ClaheWorkspace:
         if clip_limit > 0.0:
             max_val = max(clip_limit * pixels // num_bins, 1)
             histos.clamp_(max=max_val)
-            clipped = pixels - histos.sum(1)
-            residual = torch.remainder(clipped, num_bins)
-            redist = (clipped - residual).div(num_bins)
-            histos += redist.unsqueeze(1)
-            histos += (self.v_range.unsqueeze(0) < residual.unsqueeze(1)).to(histos.dtype)
+            torch.sum(histos, 1, out=self._hist_sum)
+            self._clipped.copy_(self._hist_sum).neg_().add_(pixels)
+            torch.remainder(self._clipped, num_bins, out=self._residual)
+            self._redist.copy_(self._clipped).sub_(self._residual).div_(num_bins)
+            histos.add_(self._redist.unsqueeze(1))
+            torch.lt(
+                self.v_range.unsqueeze(0),
+                self._residual.unsqueeze(1),
+                out=self._lt,
+            )
+            self._lt_f.copy_(self._lt)
+            histos.add_(self._lt_f)
 
         lut_scale = (num_bins - 1) / pixels
         torch.cumsum(histos, 1, out=self.luts_flat_buf)
@@ -314,13 +339,14 @@ def apply_clahe_korina(
     img_tensor: torch.Tensor,
     yuv_buffer: torch.Tensor,
     y_enhanced_buffer: torch.Tensor,
-    rgb_out: torch.Tensor,
+    rgb_out: torch.Tensor | None,
     clahe_workspace: ClaheWorkspace,
     color_kernels: _ColorKernels,
     clip_limit: float = 4.0,
 ) -> None:
     """
-    對已正規化到 [0, 1] 的 RGB 做 Y 通道 CLAHE，全程使用預配置 buffer，避免每幀 CUDA 配置。
+    對已正規化到 [0, 1] 的 RGB NCHW 做 Y 通道 CLAHE，結果寫回 img_tensor。
+    rgb_out 給 HWC；傳 None 就略過那次版面複製。全程使用預配置 buffer。
     """
     if img_tensor.dtype != torch.float32:
         raise ValueError("輸入必須是 torch.float32 Tensor")
@@ -330,5 +356,5 @@ def apply_clahe_korina(
     yuv_buffer[:, 0:1, :, :].copy_(y_enhanced_buffer)
     yuv_to_rgb_inplace(yuv_buffer, img_tensor, color_kernels)
 
-    out_rgb = img_tensor.squeeze(0).permute(1, 2, 0)
-    rgb_out.copy_(out_rgb)
+    if rgb_out is not None:
+        rgb_out.copy_(img_tensor.squeeze(0).permute(1, 2, 0))

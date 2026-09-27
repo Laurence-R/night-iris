@@ -9,5 +9,5 @@ wheels/
 # Virtual environments
 .venv
 
-dataset/
+unprocessed-img/
 result/

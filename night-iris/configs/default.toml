@@ -1,11 +1,14 @@
+# Path Settings
 [paths]
-input_dir = "data/images"
+input_dir = "data/images-3"
 output_dir = "result"
 
+# Sem-Object Model Settings
 [sem_object]
 model = "model/yolo26l-sem-object.pt"
 imgsz = 800
-# Cityscapes thing classes. Other scene classes stay enhanceable.
+# Cityscapes thing classes. Which we want to protect before enhancement applied.
+# Other scene classes (like building, road, fence...) stay for later enhancement.
 object_classes = [
   "person",
   "rider",
@@ -19,19 +22,33 @@ object_classes = [
   "traffic sign",
 ]
 
+# Sem-Shadow Model Settings
 [sem_shadow]
 model = "model/yolo26l-sem-shadow-2.pt"
-imgsz = 640
-dark_class_ids = [1]
+imgsz = 800
+dark_class_ids = [1]  # 0 means bright class, 1 means dark
 
+# CLAHE Hyperparameter Settings
+# For more info about how these params effect the result, ask google or AI to understand.
 [clahe]
 grid = [8, 8]
 clip_limit = 4.0
 
+# Gaussian sigma in pixels along the dark-mask edge. 0 keeps a hard cut.
+# Blur runs at quarter resolution (sigma scales with it), then alpha is upsampled.
+# While we are going to fuse protected objects and enhanced regions together, we use the params here.
+[fuse]
+feather_sigma = 8.0
+
+# CUDA only. quantize 16 is FP16. AutoBackend fuses Conv+BN on its own.
+[speed]
+quantize = 16
+channels_last = true
+
 [viz]
 min_region_area = 256
 save_crops = true
-# 0 = dump every image. Otherwise dump this many, chosen with sample_seed.
+# 0 = dump every image. Otherwise dump this many, randomly chose by sample_seed.
 sample = 8
 sample_seed = 0
 

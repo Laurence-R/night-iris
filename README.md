@@ -9,10 +9,10 @@
 
 | 子專案                                       | 這是什麼？                                                                                              |
 | ----------------------------------------- | -------------------------------------------------------------------------------------------------- |
-| `[night-iris](night-iris/README.md)`               | 前處理本體。讀 LDR，輸出融合後的 LDR，並可抽樣寫階段圖。                                                                   |
-| `[gpu-clahe](gpu-clahe/README.md)`                 | `night-iris` 呼叫的 CLAHE kernel（`clahe.py`）。同目錄的 `main.py` 量測 LDR 或 HDR 輸入的 CLAHE 延遲，不產生給 YOLO 的訓練圖。 |
-| `[dataset-transform](dataset-transform/README.md)` | 把各種的 Dataset 轉成 YOLO 格式，供 YOLO 進行各種任務的訓練、驗證與測試。                                                    |
-| `[yolo-lab](yolo-lab/README.md)`                   | 後端模型 (目前是 YOLO) 的訓練場，在已是 YOLO 格式的各種夜間資料集上做偵測訓練、驗證與 TensorRT 匯出等多項任務，並能用來比較前處理前後的偵測結果。              |
+| [night-iris](night-iris/README.md)               | 前處理本體。讀 LDR，輸出融合後的 LDR，並可抽樣寫階段圖。                                                                   |
+| [gpu-clahe](gpu-clahe/README.md)                 | `night-iris` 呼叫的 CLAHE kernel（`clahe.py`）。同目錄的 `main.py` 量測 LDR 或 HDR 輸入的 CLAHE 延遲，不產生給 YOLO 的訓練圖。 |
+| [dataset-transform](dataset-transform/README.md) | 把各種的 Dataset 轉成 YOLO 格式，供 YOLO 進行各種任務的訓練、驗證與測試。                                                    |
+| [yolo-lab](yolo-lab/README.md)                   | 後端模型 (目前是 YOLO) 的訓練場，在已是 YOLO 格式的各種夜間資料集上做偵測訓練、驗證與 TensorRT 匯出等多項任務，並能用來比較前處理前後的偵測結果。              |
 
 
 

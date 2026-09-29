@@ -2,17 +2,17 @@
 
 自動駕駛完全實現之前，夜間自動駕駛必須先被解決。夜間駕駛影像同時受低光、高強度亮光與極端光照影響，偵測模型在夜間的精準度會明顯下降；夜間資料的取得與標註成本也很高。Night-Iris 在相機與後端偵測模型之間加一層前處理：物件語意模型先標出人、車、號誌等像素並保留原圖，亮暗語意模型再在其餘區域找出暗部，GPU CLAHE 只改那些暗部像素，融合成一張既有偵測模型可以使用的 LDR。
 
-本 repo 是這項前處理的 MVP。clone 之後可以載入已放進 git 的權重，對自己的夜間 LDR 跑完整條管線。第一階段物件模型有時會標錯類別，權重先沿用現在這版，後續再改。
+
 
 ![Night-Iris 前處理架構](docs/architecture.png)
 
 
-| 子專案                                       | 是什麼                                                                                               |
-| ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `[night-iris](night-iris/)`               | 前處理本體。讀 LDR，輸出融合後的 LDR，並可抽樣寫階段圖。                                                                  |
-| `[gpu-clahe](gpu-clahe/)`                 | `night-iris` 呼叫的 CLAHE kernel（`clahe.py`）。同目錄的 `main.py` 量測 LDR 或 HDR 輸入的 CLAHE 延遲，不產生給 YOLO 的訓練圖。 |
-| `[dataset-transform](dataset-transform/)` | 把各種的 Dataset 轉成 YOLO 格式，供 YOLO 進行各種任務的訓練、驗證與測試。                                                   |
-| `[yolo-lab](yolo-lab/)`                   | 後端模型 (目前是 YOLO) 的訓練場，在已是 YOLO 格式的各種夜間資料集上做偵測訓練、驗證與 TensorRT 匯出等多項任務，並能用來比較前處理前後的偵測結果。             |
+| 子專案                                       | 這是什麼？                                                                                              |
+| ----------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| `[night-iris](night-iris/README.md)`               | 前處理本體。讀 LDR，輸出融合後的 LDR，並可抽樣寫階段圖。                                                                   |
+| `[gpu-clahe](gpu-clahe/README.md)`                 | `night-iris` 呼叫的 CLAHE kernel（`clahe.py`）。同目錄的 `main.py` 量測 LDR 或 HDR 輸入的 CLAHE 延遲，不產生給 YOLO 的訓練圖。 |
+| `[dataset-transform](dataset-transform/README.md)` | 把各種的 Dataset 轉成 YOLO 格式，供 YOLO 進行各種任務的訓練、驗證與測試。                                                    |
+| `[yolo-lab](yolo-lab/README.md)`                   | 後端模型 (目前是 YOLO) 的訓練場，在已是 YOLO 格式的各種夜間資料集上做偵測訓練、驗證與 TensorRT 匯出等多項任務，並能用來比較前處理前後的偵測結果。              |
 
 
 

@@ -1,19 +1,23 @@
+# Path Settings
 [paths]
 input_dir = "unprocessed-img"
 output_dir = "result"
 
+# Image Settings (Make sure height and width is correct with your image size)
 [image]
-height = 2048
-width = 2448
+height = 800
+width = 1200
 count = 50
 batch_size = 1
 warmup = 1
 dynamic_range = "ldr"
 
+# CLAHE Hyperparameter Settings
 [clahe]
 grid = [8, 8]
 clip_limit = 4.0
 
+# Bilateral Filtering Hyperparameter Settings
 [bilateral]
 enabled = false
 kernel = [9, 9]
